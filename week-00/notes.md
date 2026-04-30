@@ -73,3 +73,54 @@ Livekit is an individual server IS NOT A LIBRARY THAT I USE, is a server by itse
 Above that server, I can manage that server using my server code using sdk server with go so I can create roomns, manage participants and manage tracks (not for this week 0), we are delegating  all that runtime operations to the SFU that runs on our server.
 
 ![alt text](image.png)
+
+
+
+# Docker
+
+Why to use docker, don't have to complain about OS the machine. Machine is solated and have ALL it is need.
+
+## Contanier
+
+Is an isolated environment. Is like a mobile aplication. Apps are not affected by each other.
+
+docker run <container> -> run the container.
+docker ps               -> see the containers runnign
+docker stop <contanier_id> -> stop a container
+
+## Images
+Is where all needed for running the applicaction, are standarized packages where lives all the code of your app.
+Standareized packages where all the necessary (binaries, codes, files) things live for running your application.
+
+You pull docker images and you can run it directly into a container.
+
+1. Is inmmutable
+2. Is made of layers -> create layers (you can build on top of that without managing those dependecnies)
+
+
+IMAGES > CONTAINER
+
+docker search docker/welcome-to-docker -> searches in the docker marketplace an image called welcome-to-docker
+docker pull docker/welcome-to-docker -> pull an image 
+docker image history docker/welcome-to-docker -> layers of an image
+
+
+# MUST KNOWN COMMAND TO DOCKER
+-v: <&PWD/<file.yaml>>:<path_in_docker>mount files into the image, being able to use the yaml on the image and llinkid it. 
+-p: port redirection  <my-machine-port>:<docker-port>
+--config <path_in_docker>: normally the route to the config file
+
+SIntaxis is before the image
+docker run -v <> -p<> <image> --config 
+
+### Ports
+Even when the configuration in the yaml has a port configured BUT that port is not for opening the gate to the world, that port is just the "where is the play"
+
+# What i have learned about opensource and configuration
+
+normally, in opensource project we must go the source to understand all the code and configuration needed to run the application.
+
+Before knowing that I was unable to run the livekit-server image because i had not a guide to use it. Now, I understand it and i can.
+
+Based on history, OOSS projects are fail by defualt so yo can't run the application without handling the configuration. THis is done like that to ensure correct configuration and security enhancement.
+
