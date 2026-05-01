@@ -124,3 +124,56 @@ Before knowing that I was unable to run the livekit-server image because i had n
 
 Based on history, OOSS projects are fail by defualt so yo can't run the application without handling the configuration. THis is done like that to ensure correct configuration and security enhancement.
 
+
+
+# Tokens & Grants
+
+For making the users able to connect with the SDK to the server it has to be passed an **access token** with the request.
+The **access token** encodes the grants, identity,permission and other parameter of the user. The **access tokens are JWT-based and signed with the API secret (livekit)** to prevent false requests.
+Those tokens have time expiracy for the first connection, not subsequent reconnects. A request for connection with an expired token gets rejected by livekit server.
+
+## Token structure
+The access token are JWT's that contains JWT base informaion and livekit specific info like identity, room, expire time and **grants**
+
+For exmaple the decoded bod of an access token:
+{
+  "exp": 1621657263,
+  "iss": "APIMmxiL8rquKztZEoZJV9Fb",
+  "sub": "myidentity",
+  "nbf": 1619065263,
+  "video": {
+    "room": "myroom",
+    "roomJoin": true
+  },
+  "metadata": ""
+}
+In here you can see video grants, the identitu,, iss is the API token, exp is the expire time and video is video grants including room permision.
+
+## Token refresh
+
+Livekit serves automatically refresh tokens to the participants to reconnnect if they want to. THose refresh tokens have 10 min expiracy time.
+Whenever the user identity is changed or their permissions, likevit issue refresh the token automatically so the other token can't be used again.
+
+When th eparticipant's permission are changed or is deleted from the room, the token used to access the room gets revoked so it can't be used.
+
+## GRANTS AND PERMISSION
+The tokens are the way to handle permissions  to the participants on the room, you can see more in https://docs.livekit.io/frontends/reference/tokens-grants/ 
+
+## Generating the token
+
+TO use the sdk in the client we must generate a token that uses api secret so it must be generated in our backend. TO simplify all the permissions, refreshing etc that livkeit uses as discused early, we can user ToeknSource abstraction. That abstraction can integratie with Session objetc to directly connect to a room.
+
+TokenSource have different types for token generation
+
+Sandbox -> used for Livekit Cloud (not our use case)
+Endpoint -> provide a token standarized endpoint in our backend and livekit maanges all the token lifecycle.
+Custom -> Provide our async custom token manager and generator
+Literal-> Directly provide our tokens.
+
+Our use case we will use endpoint type to handle token generation and usability.
+
+### Authentication flow
+
+1. Client asks for a token to our server
+2. Server serves the token (with thte permissions that we want) (using the endpoint type)
+3. Client connects to livekit using it using Session, that happens automaticaaly TOkenSOurve fetched the token and session habndles the connection. 
