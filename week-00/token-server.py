@@ -1,10 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, Dict
 import os
 import time
 from livekit import api #Library for managing rooms, participants and tracks
 from dotenv import load_dotenv
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
 class TokenRequest(BaseModel):
     room_name: Optional[str] = None
@@ -17,6 +20,24 @@ class TokenRequest(BaseModel):
 load_dotenv()
 
 app = FastAPI()
+
+static_dir = "/client"
+app.mount(static_dir,StaticFiles(directory="client"))
+templates = Jinja2Templates(directory="client")
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials = True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/",status_code=200)
+async def serve_client(request:Request):
+    return templates.TemplateResponse(name="index.html",request=request)
 
 @app.post("/api/token", status_code=201)
 async def get_token(request:TokenRequest):
@@ -33,7 +54,6 @@ async def get_token(request:TokenRequest):
         api_key = os.getenv("LIVEKIT_API_KEY")
         api_secret = os.getenv("LIVEKIT_API_SECRET")
         server_url = os.getenv("LIVEKIT_URL")
-        print(api_key)
         if not all([api_key,api_secret,server_url]):
             raise HTTPException(
                 status_code=500,
