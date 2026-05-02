@@ -3,8 +3,8 @@
     <title>My app</title>
 </head>
 <body>
-    fjsdoifsdofj
-
+    <div id="remote-media"></div>
+    <button onclick=start()>CONNECT</button>
 </body>
 <!-- Autoplay is allowed. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/livekit-client/2.15.7/livekit-client.umd.js" integrity="sha512-SsMgKAHzioCmBltf4+6xpVWzCSz2cK2QXP2CgGxqRg17sJkWk7aVmNO4yEGQr/c47BqYPYWiAr1+hXXgP4MB2g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -16,7 +16,7 @@
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                "room_name": null,
+                "room_name": "MY ROOM",
                 "participant_identity": null,
                 "participant_name": null,
                 "participant_metadata": null,
@@ -30,15 +30,34 @@
         return data
     }
 
+
     const start = async function connectToRoom(){
         const data = await getToken()
         const room = new LivekitClient.Room();
         console.log(data.server_url,data.participant_token)
-        room.connect(data.server_url,data.participant_token)
+        window.room = room
+        console.log("hfedf")
+        room.on(LivekitClient.RoomEvent.TrackSubscribed, handleTrackSuscribed)
+        console.log("=")
+        await room.connect(data.server_url,data.participant_token)
+        await room.localParticipant.setCameraEnabled(true)
+        await room.localParticipant.setMicrophoneEnabled(true)    
     }
 
-    start()
-    
+
+    function handleTrackSuscribed(
+        track,
+        publication,
+        participant,
+    ){
+        console.log("FSDF")
+        /* DO things with the track*/
+        // Attach track to a new HTMLVIdeoElement or HTMLAUdioElement
+        const element = track.attach()
+        document.getElementById("remote-media").appendChild(element);        //Or attach ot existing element
+        // track.attach(element)
+    }    
+
 </script>
 
 
