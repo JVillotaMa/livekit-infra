@@ -177,3 +177,181 @@ Our use case we will use endpoint type to handle token generation and usability.
 1. Client asks for a token to our server
 2. Server serves the token (with thte permissions that we want) (using the endpoint type)
 3. Client connects to livekit using it using Session, that happens automaticaaly TOkenSOurve fetched the token and session habndles the connection. 
+
+### CRITICAL
+In the token generation de the api and secret keys are not validated with the livekit server, they are just served.
+
+# Connection between api and front
+
+Fastapi was waiting a json request but I was sending a js object so i constantly received a 422 error, i have to serialize (transform de js object into JSON to do it.)
+
+It is done by JSON.stringify
+
+
+I have discoverd in the config.yaml of livekit that the api key and secret were pairs apiKey:secretKey
+
+
+# Media and track
+the client sdk can enable microphone and camera permissions using
+
+room.localParticipant.setCameraEnabled(true)
+room.localParticipant.setMicrophoneEnabled(true)
+
+This what is doing is
+1. Connection to the device via de browser
+2. Creates the track locally
+3. Publishses to the SFU
+
+What we need now is to get that data from the published data in the SFU and insert it into de DOM.
+
+## How to debug if audio is publishing and receibing?
+In console in publisher:
+
+*room.localParticipant.trackPublications*
+
+That command gives you the tracks that are being sent to the SFU.
+
+In console in suscriber:
+
+*console.log('Remote participants:', Array.from(room.remoteParticipants.values()).map(p => ({
+      identity: p.identity,                                                                                                                                                                   
+      tracks: p.trackPublications.size
+  })));*
+
+To see which tracks i am receiving from the other participants.
+
+and in suscriber console as well:
+*const remoto = Array.from(room.remoteParticipants.values())[0];                                                                                                                             
+  remoto.trackPublications.forEach(pub => {                                                                                                                                                   
+      console.log(pub.kind, '| subscribed:', pub.isSubscribed, '| attached elements:', pub.track?.attachedElements?.length || 0);
+  });    *
+
+So we can know if the tracks that we are receiving are being attached to a component and being seen in the DOM. IF they are not being rendered in the DOM the client cannot listen to that.
+
+## Suscribring to a track
+
+By default, when a participant joins a room, there is autoSuscribe enable by default so the client is receiving all the tracks and they are ready for render it.
+
+### 1. Suscribe to the track data from the server
+
+Livekit has two constructs to track media:
+- TrackPublication: Media metadata, all the listeners have access to it even when there are no suscribers of the raw data of the track
+- Track: raw media stream
+
+SO the way of suscribing to that is a Javascript callback that suscribes to both of the constructs.
+
+```js
+room.on(RoomEvent.TrackSuscribed, handleTrackSuscribed)
+function handleTrackSuscribed(
+  track: RemoteTrack,
+  publication: RemoteTrackPublication,
+  participant: RemoteParticipant,
+){
+  /* DO things with the track*/
+  // Attach track to a new HTMLVIdeoElement or HTMLAUdioElement
+  const element = track.attach()
+  parentElement.appendChild(element)
+  //Or attach ot existing element
+  // track.attach(element)
+}
+```
+
+
+# Debgugginh
+
+to verify connection repeteadly put 
+
+```js
+console.log({                                                                                                                                                                               
+      state: room.state,                                                                                                                                                                    
+      localTracks: room.localParticipant.trackPublications.size,                                                                                                                              
+      remoteParticipants: room.remoteParticipants.size,                                                                                                                                       
+      canPlayback: room.canPlaybackAudio                                                                                                                                                      
+  });     
+  ```
+
+
+# ERROR CRITICO EDUCATIVO
+
+I have encountered this error
+```
+livekit-client.umd.js:1 Uncaught (in promise) ConnectionError: could not establish pc connection
+    at livekit-client.umd.js:1:207341
+```
+
+that meant that the connection via TCP to the SFU was successful, but when the participant tried to connect via UDP to the SFU to track media and tried all the ICE candidates, it coudn't connect.
+That is because the browser has not been able to solve the ip and there is no ports for UDP in the docker that are ready for connections.
+
+
+  What happened was that our signaling layer was funcitonign (TCP working and connection done)
+
+# ICE failed WebRTC
+When a client connects to a SFU using webrtc, the SFU serves candidates. The client using webRTC tries all the candidates and the first connecting is the one that is used by the client. WebRTC negotiates
+
+### Principal content:
+We use two different channgels of data signaling and media. Signaling is done via TCP and media via UDP and one of them can be broken. The problem is usuarlly routers, NAT and firewalls. #1 production bug with WebRTC
+
+# ICE
+ICE is the negotiation process peers to find a actionable route.
+1. Every peer (our browser and SFU) share candidates list. A candidate is a tuple (IP, puerto, protocolo, tipo). Ejemplo:                                                   
+    - (192.168.1.50, 50012, UDP, host) ← una IP local del SFU
+    - (188.86.113.76, 50012, UDP, srflx) ← su IP pública vía STUN                                                                                                                        - (10.0.0.5, 7881, TCP, host) ← fallback TCP                                                     
+
+2. The other peer test connections and the first connecting wings
+3. If all fails -> ICE failed -> could not establish pc connection.
+
+
+So the fix is telling livekit in the config to show private ips so the SFU shows local candidates to the browser and the browser can resolve those. Furthermore, we need to handle new connections using docker bridges
+
+
+# NAT
+
+NAT is a way of using just one public IP for multiple clients.
+
+How it works: i want to connect to 8.8.8.8
+My browser/pc: private 127.0.0.1
+GOes to my router: private 192.168.1.1 inside, but outside 188.86.113.76 to internet.
+
+So if someone from Ukrains wants to connect with me it can't because is private.
+
+Solo tu router tiene una IP pública, y la comparte con todos los dispositivos de tu casa.                                                                                                   
+                  
+  Salida: connection outbound (lo que SÍ funciona)                                                                                                                                            
+                  
+  Tu portátil quiere abrir google.com:                                                                                                                                                        
+                  
+  1. Portátil envía paquete: desde 192.168.1.50:54321 hacia 142.250.184.78:443 (Google).                                                                                                      
+  2. Paquete sale por router. Router lo intercepta y lo reescribe (esto es la "translación"):
+    - Cambia el origen: ahora es desde 188.86.113.76:54321 hacia 142.250.184.78:443.                                                                                                          
+    - Anota en una tabla: "puerto externo 54321 ↔ portátil 192.168.1.50:54321".                                                                                                               
+  3. Google recibe el paquete, ve que viene de 188.86.113.76, responde a esa IP.                                                                                                              
+  4. La respuesta llega al router: desde 142.250.184.78:443 hacia 188.86.113.76:54321.                                                                                                        
+  5. Router consulta su tabla, ve "54321 era del portátil", reescribe el destino y reenvía:                                                                                                   
+    - desde 142.250.184.78:443 hacia 192.168.1.50:54321.                                                                                                                                      
+  6. Tu portátil recibe la respuesta. Cree que habló directamente con Google.                                                                                                                 
+                                                                                                                                                                                              
+  Magia: los 50 dispositivos de tu casa pueden navegar simultáneamente con una sola IP pública. Cada uno usa puertos distintos en la tabla del router.                                        
+                                                                                                                                                                                              
+  El problema de NAT: tráfico inbound                                                                                                                                                         
+                  
+  Imagina que alguien en internet quiere conectarse a tu portátil sin que tú hayas iniciado la conversación. ¿A qué dirección envía el paquete?                                               
+                  
+  - 192.168.1.50 → no se enruta en internet, paquete se pierde.                                                                                                                               
+  - 188.86.113.76 → llega a tu router, pero el router no tiene ni idea de a qué dispositivo interno reenviar. Su tabla solo tiene entradas para conexiones iniciadas desde dentro.
+                                                                                                                                                                                              
+  Resultado: los dispositivos detrás de NAT son inalcanzables desde fuera por defecto. Solo pueden iniciar conexiones, no recibirlas.                                                         
+                                                                                                                                                                                              
+  Esto es enorme para internet:                                                                                                                                                               
+  - ✅ Bueno para clientes (laptop, móvil) — añade una capa de "firewall" gratis.
+  - ❌ Malo para servidores — necesitan port forwarding explícito en el router para recibir tráfico.                                                                                          
+  - ❌ Catastrófico para P2P / WebRTC — dos peers detrás de NAT no pueden hablarse directamente.   
+
+
+  Por qué tu LiveKit fallaba — NAT hairpinning                                                                                                                                                       
+  Tu caso fue una variante específica llamada NAT hairpinning (o NAT loopback):                                                                                                               
+                  
+  1. Tu LiveKit en Docker descubrió vía STUN su IP pública: 188.86.113.76.                                                                                                                    
+  2. Anunció a los clientes: "para enviarme media UDP, usa 188.86.113.76:50012".
+  3. Tu navegador en el mismo localhost intentó conectar a 188.86.113.76:50012.                                                                                                               
+  4. El paquete sale de tu navegador → router → ¡pero el destino es tu propio router!                                                                                                         
+  5. El router, dependiendo de su firmware, a veces no soporta hairpinning (volver a entrar por su propia IP pública). El paquete se pierde.
