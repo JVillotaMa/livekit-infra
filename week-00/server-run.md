@@ -8,7 +8,6 @@ Even when the port of the confifg is 7880, that does not mean that the gate is o
 
 
 
-docker run -v $PWD/livekit.yaml:/livekit.yaml -p 7882:7880 livekit/livekit-server:v1.11.0 --config /livekit.yaml
-
+docker run -v $PWD/livekit.yaml:/livekit.yaml -p 7880:7880 -p 7881:7881 -p 50000-50050:50000-50050 livekit/livekit-server:v1.11.0  --config /livekit.yaml
 
 For running the token genertaion server for livekit, fastapi run <file.py>
