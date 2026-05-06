@@ -2,7 +2,7 @@
 
 **Autor:** Jaime Villota
 **Inicio:** 2026-04-28
-**Fin objetivo:** 2026-08-23 (~16 semanas)
+**Fin objetivo:** 2026-08-30 (~17 semanas, incluye Semana 8 de telefonía SIP)
 **Carga:** 2h/día L-V + 2-3h sábado ≈ 12-13h/semana
 **Vehículo:** proyecto LiveKit self-hosted (calling infra)
 **Conversacion**: claude --resume d2e4d66f-db15-4e6b-aa7d-3062a32478e2
@@ -115,7 +115,7 @@ Manos en el teclado. Código, terminal, infra real.
 | Sábado | Sesión larga | 2-3h | Cerrar deliverable, README, commit final |
 | Domingo | Off / retro opcional | 0-30 min | Descanso |
 
-**Total:** 12-13h/semana × 16 semanas ≈ **200h reales**.
+**Total:** 12-13h/semana × 17 semanas ≈ **210h reales** (Semana 8 SIP es algo más densa: ~14h).
 
 **Franja horaria:** elige una (mañana 7-9, mediodía 13-15, o tarde 18-20) y mantenla. La constancia compone más que la cantidad.
 
@@ -232,7 +232,62 @@ Si no puedes responder a las 5 sin abrir docs, repasa antes de pasar a Semana 1.
 - **Estudio:** coturn config (realm, auth, listening ports, range UDP), Let's Encrypt + cert-manager o Caddy, DNS A/AAAA, reverse proxy.
 - **Recomendación:** **Caddy** sobre nginx para esto, mucho más simple para certs automáticos.
 
-#### Semana 8 · Load testing + tuning
+#### Semana 8 · Telefonía SIP (la que conecta el roadmap con Sonalyx)
+- **Deliverable:** llamada telefónica real desde un móvil cualquiera a un número que tú controlas, que entra a una room de LiveKit donde un participante (browser o agent) puede hablar. Audio bidireccional funcional. Logs de la llamada en tu Grafana.
+- **Estudio:** SIP/RTP fundamentals (signaling vs media), trunk providers (Telnyx/Twilio/Voxbeam), `livekit-sip`, dispatch rules, DID, PSTN, codecs telefónicos (Opus vs G.711).
+- **Recurso:** `docs.livekit.io/sip/` + `github.com/livekit/sip` + Telnyx Developer Portal.
+- **Pre-requisitos:** Semana 7 cerrada (TURN + TLS + dominio funcionando). SIP sin esa base es ejercicio de juguete.
+- **Por qué AQUÍ:** acabas de montar TURN, TLS y dominio. SIP necesita exactamente eso para conectar trunks reales. Insertar SIP ahora aprovecha la base recién hecha y conecta el aprendizaje de infra con el producto real de Sonalyx.
+
+**Plan de la semana (más densa: 2h/día + sábado largo):**
+
+- **Día 1:** lectura de conceptos SIP/RTP/PSTN. Crear cuenta en Telnyx (o Voxbeam si prefieres provider español). Comprar 1 número (~$1-2/mes). Anotar credenciales del trunk.
+- **Día 2:** añadir `livekit/sip` al `docker-compose.yml`. Configurar `sip.yaml` mínimo conectado a tu LiveKit. Verificar que arranca y se registra.
+- **Día 3:** crear inbound trunk en LiveKit (vía API o `livekit-cli`). Configurar dispatch rule básico ("cualquier llamada → room `support`"). Configurar el provider para rutear al `livekit-sip`.
+- **Día 4:** **primera llamada real**. Marcar tu número desde un móvil. Verificar en logs que entra. Verificar participant en la room. Conectar tu cliente web a la misma room y hablar contigo mismo.
+- **Día 5:** routing dinámico — `services/sip-dispatcher/` Python que recibe webhooks de eventos SIP y decide room según número marcado.
+- **Día 6:** outbound calls — configurar el trunk para originar llamadas. Test: script que te llama al móvil, contestas, entras en room.
+- **Día 7:** observabilidad — métricas Prometheus de `livekit-sip` integradas en Grafana. Runbooks: "llamada conecta sin audio" (RTP/NAT), "trunk no se registra" (credenciales), "llamada se cae a 30s" (timeout NAT).
+
+**Estructura nueva en el repo:**
+
+```
+livekit-infra/
+├── services/
+│   └── sip-dispatcher/         # NUEVO — webhook handler + routing
+│       ├── main.py
+│       └── Dockerfile
+├── docker/
+│   ├── docker-compose.yml      # añade servicio livekit-sip
+│   └── sip.yaml                # NUEVO — config livekit-sip
+├── docs/
+│   ├── decisions/
+│   │   └── 0XX-sip-trunk-provider.md   # NUEVO — ADR provider elegido
+│   └── sip-architecture.md     # NUEVO — diagrama flujo SIP→LiveKit
+├── runbooks/
+│   ├── sip-call-no-audio.md    # NUEVO
+│   ├── trunk-not-registered.md # NUEVO
+│   └── sip-call-drops-30s.md   # NUEVO
+└── scripts/
+    └── test-sip-call.sh        # NUEVO
+```
+
+**Costes esperados (Telnyx, 2026):**
+- Número EU: ~$1-2/mes.
+- Inbound EU: $0.0035-0.0075/min.
+- Outbound EU: $0.005-0.015/min.
+- **Total semana de aprendizaje:** ~$5-15.
+
+**Trampas conocidas:**
+- **NAT y RTP:** la mayoría de "llamada conecta pero no oye" es UDP/NAT. `livekit-sip` puede necesitar IPs explícitas en config.
+- **Codec mismatch:** provider envía Opus o G.711, ambos deben aceptarse.
+- **Credenciales:** trunk password en secret manager o env var, **NUNCA committeado**.
+- **Costes runaway:** un bug en outbound puede llamar 1000 veces. **Pon spending caps en el provider desde Día 1.**
+- **Compliance:** grabar llamadas en EU requiere consentimiento (RGPD).
+
+**Tools de debugging que necesitas conocer:** Wireshark + `sngrep` (te muestra el flow SIP en formato call-flow diagram, brutal cuando algo no conecta).
+
+#### Semana 9 · Load testing + tuning
 - **Deliverable:** simular 50-100 llamadas concurrentes con `livekit-cli load-test`, gráficas de Grafana mostrando dónde se rompe, ajustes de sistema (sysctl, ulimits) documentados con before/after.
 - **Estudio:** load testing approaches, `htop`/`iotop`/`ss`/`tcpdump` básico, sysctl tuning para muchas conexiones UDP, vertical vs horizontal scaling.
 
@@ -240,22 +295,22 @@ Si no puedes responder a las 5 sin abrir docs, repasa antes de pasar a Semana 1.
 
 ### MES 3 — Escalar y automatizar
 
-#### Semana 9 · Kubernetes fundamentos
+#### Semana 10 · Kubernetes fundamentos
 - **Deliverable:** cluster k3s en una VPS con 2-3 servicios tontos desplegados (NGINX + app simple + Redis). **No LiveKit aún.**
 - **Estudio:** Pods, ReplicaSets, Deployments, Services (ClusterIP/NodePort/LoadBalancer), ConfigMaps, Secrets, namespaces, `kubectl` con fluidez.
 - **Recurso:** *Kubernetes Up & Running* (Hightower, Burns, Beda).
 - **Skip por ahora:** "Kubernetes The Hard Way" (masoquismo opcional, no necesario).
 
-#### Semana 10 · K8s producción-light
+#### Semana 11 · K8s producción-light
 - **Deliverable:** LiveKit en K8s con Helm chart oficial, ingress configurado, persistent volumes, HPA con métricas custom.
 - **Estudio:** Helm (charts/values/templates), ingress controllers (nginx-ingress o Traefik), StatefulSets para datos persistentes, resource requests/limits, HPA.
 - **EMPIEZA A APLICAR A CURROS ESTA SEMANA.** No esperes a sentirte listo. Las primeras entrevistas son entrenamiento.
 
-#### Semana 11 · CI/CD
+#### Semana 12 · CI/CD
 - **Deliverable:** push a `main` → tests → build Docker → push a registry → deploy automático al cluster. PR previews opcionales.
 - **Estudio:** GitHub Actions (workflows, jobs, matrix, caching), GHCR/ECR, GitOps con ArgoCD, secrets en CI vía OIDC con AWS (no más secrets hardcoded).
 
-#### Semana 12 · Seguridad
+#### Semana 13 · Seguridad
 - **Deliverable:** secrets gestionados con SOPS o External Secrets Operator, IAM auditado con mínimo privilegio, NetworkPolicies en cluster, scan de imágenes Docker en CI con Trivy.
 - **Estudio:** secrets management patterns, IAM least-privilege, NetworkPolicies de Kubernetes, container scanning, dependency scanning (Dependabot, Snyk free), TLS interno entre servicios.
 
@@ -263,22 +318,23 @@ Si no puedes responder a las 5 sin abrir docs, repasa antes de pasar a Semana 1.
 
 ### MES 4 — Producción real + capitalizar
 
-#### Semana 13 · Backups, DR, runbooks
+#### Semana 14 · Backups, DR, runbooks
 - **Deliverable:** backups automáticos de Postgres a S3 con retención, restore probado de verdad (no solo "el cron corre"), runbooks Markdown para 3 escenarios: "SFU caído", "TURN caído", "DB perdida".
 
-#### Semana 14 · Costes + polish
+#### Semana 15 · Costes + polish
 - **Deliverable:** dashboard de costes AWS, AWS Budgets con alertas en €, optimización (right-sizing instancias, spot donde aplique), README de arquitectura del proyecto con diagrama (excalidraw o draw.io).
 
-#### Semana 15 · Publicar
+#### Semana 16 · Publicar
 - **Deliverable:**
   1. Post 1: *"Self-hosting LiveKit on AWS: walkthrough completo con costes reales"*
   2. Post 2: *"From docker-compose to Kubernetes: voice infra production journey"*
-  3. README brutal del repo: arquitectura, decisiones, costes, métricas, lecciones aprendidas.
+  3. Post 3 (extra, gracias a Semana 8): *"Self-hosted SIP trunking with LiveKit: from Twilio to your own infra"*
+  4. README brutal del repo: arquitectura, decisiones, costes, métricas, lecciones aprendidas.
 - **Plataformas:** dev.to + LinkedIn + tu propio dominio si tienes blog.
 
-#### Semana 16 · Aplicar de verdad
+#### Semana 17 · Aplicar de verdad
 - **Deliverable:** CV y LinkedIn actualizados con el proyecto destacado. **30 candidaturas mínimo.** Mix de empresas (Madrid + remoto).
-- **Targets:** consultorías técnicas serias (Codurance, Adesso, Empathy.co), startups con perfil técnico (Factorial, Glovo Tech, Job&Talent), empresas EU/US con remoto desde España (Remote, Deel-friendly).
+- **Targets:** consultorías técnicas serias (Codurance, Adesso, Empathy.co), startups con perfil técnico (Factorial, Glovo Tech, Job&Talent), empresas EU/US con remoto desde España (Remote, Deel-friendly), startups voice AI (Sierra, Decagon, Vapi, Retell — perfil ideal con tu stack).
 
 ---
 
@@ -300,13 +356,13 @@ Si no puedes responder a las 5 sin abrir docs, repasa antes de pasar a Semana 1.
 2. **Cada viernes 30 min de retro escrita:** plantilla en `retros/YYYY-WW.md`. Qué aprendí, qué me frustró, qué viene la semana próxima.
 3. **Commits diarios.** Aunque sean WIP. La gráfica de actividad de GitHub la ven los reclutadores.
 4. **No te metas en Twitter/Discord de DevOps a leer opinión.** Agujero negro de tiempo. Documentación oficial > thread de influencer.
-5. **Aplicar a curros desde semana 10**, no semana 16. Las primeras entrevistas calibran.
+5. **Aplicar a curros desde semana 11**, no semana 17. Las primeras entrevistas calibran.
 6. **Si Sonalyx te demanda urgencia, pausa 1 semana y reanuda.** No abandones, pausa.
 7. **Comprar dominio propio (≈10€/año)** desde semana 7 para tener TLS real. `tunombre.dev` o similar.
 
 ---
 
-## 9. Métricas de éxito (revisar en semanas 4, 8, 12, 16)
+## 9. Métricas de éxito (revisar en semanas 4, 8, 13, 17)
 
 - [ ] Repo público con commits regulares (>4 días/semana en activo).
 - [ ] Cada semana cerrada con su deliverable funcionando + README.
@@ -344,7 +400,7 @@ Excepción única: `week-00/` queda congelado como histórico de la exploración
 
 Las **notas semanales** (qué aprendí, qué hice) sí van en `notes/week-XX.md` — eso es documentación, no código.
 
-### 11.2 Estructura final (al terminar Semana 16)
+### 11.2 Estructura final (al terminar Semana 17)
 
 ```
 livekit-infra/
@@ -467,15 +523,16 @@ livekit-infra/
 | **5** | `terraform/` se reorganiza en `modules/` + `envs/staging` + `envs/prod`. `backend.tf` con state remoto. Aparece `docs/decisions/` con primer ADR. |
 | **6** | `observability/` con Prometheus + Grafana + Loki + alertas. Dashboard JSON exportado. |
 | **7** | `docker/livekit.yaml` se actualiza con TURN config. Configs de Caddy. Compras dominio (`tunombre.dev`). |
-| **8** | `scripts/load-test.sh`. Resultados en `docs/load-test-results.md`. Tuning de sysctl documentado en runbook. |
-| **9** | Aparece `k8s/` con cluster k3s y manifests para 2-3 servicios tontos (no LiveKit aún). |
-| **10** | `k8s/helm-values/` con LiveKit oficial. `k8s/manifests/` con tus servicios propios. Empiezas a aplicar a curros. |
-| **11** | `.github/workflows/` con CI/CD. `k8s/argocd/` con apps. |
-| **12** | `k8s/policies/` con NetworkPolicies. `scripts/rotate-secrets.sh`. Trivy en CI. |
-| **13** | `runbooks/` con escenarios reales. `scripts/backup-restore.sh` probado. |
-| **14** | `docs/costs.md` con números reales. `docs/architecture.md` actualizado con diagrama final. |
-| **15** | 2 posts publicados (links en README). README brutal del repo terminado. |
-| **16** | Sin estructura nueva. CV/LinkedIn actualizados, candidaturas. |
+| **8** | Aparece `services/sip-dispatcher/`, `docker/sip.yaml`, runbooks SIP. Trunk en Telnyx (o equivalente) registrado y rutado. **Primera llamada telefónica real funciona.** |
+| **9** | `scripts/load-test.sh`. Resultados en `docs/load-test-results.md`. Tuning de sysctl documentado en runbook. |
+| **10** | Aparece `k8s/` con cluster k3s y manifests para 2-3 servicios tontos (no LiveKit aún). |
+| **11** | `k8s/helm-values/` con LiveKit oficial. `k8s/manifests/` con tus servicios propios. Empiezas a aplicar a curros. |
+| **12** | `.github/workflows/` con CI/CD. `k8s/argocd/` con apps. |
+| **13** | `k8s/policies/` con NetworkPolicies. `scripts/rotate-secrets.sh`. Trivy en CI. |
+| **14** | `runbooks/` con escenarios reales. `scripts/backup-restore.sh` probado. |
+| **15** | `docs/costs.md` con números reales. `docs/architecture.md` actualizado con diagrama final. |
+| **16** | 2-3 posts publicados (links en README). README brutal del repo terminado. |
+| **17** | Sin estructura nueva. CV/LinkedIn actualizados, candidaturas. |
 
 ### 11.4 Reglas de oro de la estructura
 

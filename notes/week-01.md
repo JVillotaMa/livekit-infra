@@ -72,6 +72,10 @@ I have been thinking if the cofig file can be writen in order to specify all , i
 
 THis is the way for docker and will be used continousely.
 
+## CUSTOM FILES IN NGINX
+
+so the nginx default configuration file has this: include /etc/nginx/conf.d/*.conf; , that means that all custom configuration files that you want to process have to be in that folder in order to use it in nginx. SO the idea in a docker is to pass that file to that exactly folder.
+
 # DOCKER
 ## Registry
 A registry is a centralized locatoin that stores and manages container imageages, whereas a repository is a collection of related container images within a registry. Think of it as a folder where you organize your images based on projects. Each repository contains one ore more conatinaer images.
@@ -130,3 +134,20 @@ echo 'console.log("Hello")' >> app.js
 # Configure a default command to the app and commit the image
 docker commit -c "CMD node app.js" -m "Add app" node-app hello-app
 ```
+
+## Experience building images
+docker image prune -a -> to delete all
+docker build -t <nameimage> .
+docker run <name-image>
+
+### Diference between -v and COPY
+Copy literlally copies the file in the local directory to the image in the directory you want AND that copied file is inmutable, that means that the image is not changing if locally is changed and the image is ready for production.
+
+-v whtat it does is binding the local file to the image file, so in development we can bind files in order to use the image while we change the file locally.
+
+FOR PRODUCTION docker run -p 8080:80 image *like* docker run -p 8080:80 jaime/nginx-custom:latest
+FOR DEVELOPMENT docker run  -p 8080:80 -v <localfilepath>:<imagefilepath> *like*: docker run -p 8080:80 -v $PWD/index.html:/usr/share/nginx/html/index.html jaime/nginx-custom:latest
+
+### Diferrence between -p and EXPOSE
+
+-p is the bridge that connects to the world to the container and EXPOSE is which port the container receives. EXPOSE wait for port, -p opens the gate.
