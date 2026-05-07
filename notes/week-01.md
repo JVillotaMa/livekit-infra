@@ -151,3 +151,9 @@ FOR DEVELOPMENT docker run  -p 8080:80 -v <localfilepath>:<imagefilepath> *like*
 ### Diferrence between -p and EXPOSE
 
 -p is the bridge that connects to the world to the container and EXPOSE is which port the container receives. EXPOSE wait for port, -p opens the gate.
+
+
+## UV and docker
+uv creates automatically a env when installing so to run it do uv run fastapi file.
+
+to run it use docker run -p 8000:8000 pyhton/fastapi:latest
