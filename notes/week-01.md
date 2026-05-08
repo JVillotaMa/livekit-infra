@@ -157,3 +157,13 @@ FOR DEVELOPMENT docker run  -p 8080:80 -v <localfilepath>:<imagefilepath> *like*
 uv creates automatically a env when installing so to run it do uv run fastapi file.
 
 to run it use docker run -p 8000:8000 pyhton/fastapi:latest
+
+# Docker compose
+docker compose is a yml file that is used for runnign multicontainer applications. Is a secetually order creating applicacitions where the **NETWORK IS HANDLED BY DEFAULT**
+a yml file is
+fdfs:
+    sdfsd:
+        dsfsdf:
+        dsfsfd:
+
+

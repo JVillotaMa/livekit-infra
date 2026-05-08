@@ -1,0 +1,18 @@
+services:
+  livekit:
+    image: livekit/livekit-server:v1.11.0
+    volumes:
+      - $PWD/livekit.yaml:/livekit.yaml
+    command: --config livekit.yaml
+    ports:
+      - "50000-50050:50000-50050"
+      - "7880:7880"
+  token-server:
+    image: pyhton/fastapi
+    ports:
+      - "8000:8000"
+  client:
+    image: jaime/nginx-custom
+    ports:
+      - "80:80"
+  
