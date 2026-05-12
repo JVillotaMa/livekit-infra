@@ -56,5 +56,68 @@ It has been shown by researchers that we are just using 20% of the bandwith capa
 With latnecy, yes, we can improve the material's quality but small improvemtn. We can reduce distance.
 But the most imporatn one is optimize the perfomance of our applactions. Architext and optimize protcols and networking code. Move data closer to the cliend. Build apps that can hide lattency thorugh caching, prefetching and othAs a result, to improve performance of our applications, we need to architect and optimize our protocols and networking code with explicit awareness of the limitations of available bandwidth and the speed of light: we need to reduce round trips, move the data closer to the client, and build applications that can hide the latency through caching, pre-fetching, and a variety of similar techniques, as explained in subsequent chapters.
 
-er techiniques.
+# BUILDING BLOCKS OF TCP
 
+At the heart of the internet thare are two main protocol IP, that handles the routing in the networks and TCP that makes communication reliable in unreliable channels. TCP/IP is known as the suit.
+
+TCP has not been changet since the 1981, there has been some improvementes but its core, abstraction of complexity and reliability has not changed. TCP assures that all the bytes arrives at the same order and all.
+
+We will see some of the main features of the TCP, I am not going to work directly with TCP in my life, but knowing its features can increase web and app performance.
+
+## Three way handshake
+
+All TCP connections starts with the three way handshake. Before the client and the server start sending data they must choose a number to agree on starting packet sequence. Sequence numbers are chosen randomly
+1. SYN: Client picks a random number and sends the number with some TCP options to the server
+2. SYN ACK: server takes that number and picks another random one, it returns to the client x+1 and the new random
+3. ACK: client sends y+1 x+1
+
+After that, both client and server can start sending/receiving data from each one.
+
+# Flow control
+Mechanism to prevent the client to oveerwhelm the receiver with data it cannot process. It may be busy, a lot of load etc. For that, each side informs about the window(rwnd) wich communicate the avalible buffer space for the incoming data. It happens at the beggining and middle of the communication.
+
+If one of the sides cannot keep up de rythim, it sends an smaller rwnd to the other to communicate to move slowly.
+
+To address this, RFC 1323 was drafted to provide a "TCP window scaling" option, which allows us to raise the maximum receive window size from 65,535 bytes to 1 gigabyte! The window scaling option is communicated during the three-way handshake and carries a value that represents the number of bits to left-shift the 16-bit window size field in future ACKs.
+
+## Slow start
+Despite the control flow mechanism, netwrok connection was an issue. There was no mechanism to prevent either side from overwhelming the underlying network. No one knows the avaliable bandwidth at thebeginning of a new connection or adapt the sending information depending on circumstances.
+
+After the three handshake starts the data exchange and th eonly way of knowing the congestion is by sending data.
+To start, the server initilizes a new congestion window cwnd varible per TCP connections and sets the initial value to a conservative value.
+
+Cwnd: sender side limit on the amount of data the sender can have in gligh before receibing an ackonlowdgmente (ACK) from the client. The cwnd is not a shared variable, is a private one in the server. 
+
+Okay, so how can we change? The idea is to start slow, then, more segments can be sent. And if there is a packet loss, reduce the widnow.
+![alt text](image-4.png)
+
+So, now we know ehy our voice agents started slowly and then were converting the conversation in a more fluent one. It was about TCP all this time.
+
+![alt text](image-5.png)
+![alt text](image-6.png)
+
+
+
+## Congestion avoidance
+ Right now, packet loss is a feedback for activating more packages or not. It is not an if so a when. TCP startsmall and doubles the packages sent every time until it drops a packaeg, then, the cut is done. That is done several times in the connection.
+
+ COngestion avoidance takes place right now and it is an actual academic research and commercial products research.
+
+# Head of line blocking
+TCP handles that all packages arrives in order, so TCP don't allow the app to receive packages before the before packages has been received
+
+Emisor:    P1 → P2 → P3 → P4 → P5
+Camino real con un paquete perdido por el camino:
+
+Red:       P1 ✓
+            P2 ✓
+            P3 ✗  (perdido)
+            P4 ✓
+            P5 ✓
+
+  ¿Qué hace TCP en el receptor?
+
+  Aunque P4 y P5 ya están en el buffer del receptor, TCP NO los entrega a la aplicación
+  hasta haber recibido P3. Mantiene "ordered delivery" como contrato sagrado.
+# Bandwith Delay product
+It signals how many data in bytes can be sending at max in a conextion   Bandwidth-Delay Product (BDP) = ancho de banda × delay (RTT).
