@@ -121,3 +121,101 @@ Red:       P1 ✓
   hasta haber recibido P3. Mantiene "ordered delivery" como contrato sagrado.
 # Bandwith Delay product
 It signals how many data in bytes can be sending at max in a conextion   Bandwidth-Delay Product (BDP) = ancho de banda × delay (RTT).
+
+
+
+
+# BUILDING BLOCKS OF UDP
+UDP is a well known protocol known as null protocoll by all the features that not implements from TCP.
+ 
+**Datagram** a self contained data block that has the necessary and minimum infromation for traveling to p2p without any other previous conneciton.
+
+**Package vs datagram** -> Datagram is said by the data that is sent from a non reliable source, may be lost may be not.
+
+UDP uses datagrams
+
+The most well known use is DNS
+
+# Null protocol services
+
+UDP just adds four more fields to the IP protocol, and two of them are optional.
+
+**No guarantee of message delivyer**, **No guarantee of order of delivyer**, **No connection state tracking**, **No congestion control.**
+
+# NAT
+Nat is the system for improving the quuantity of the necessary public IPs to sustain the world.
+
+# NAT PROBLEM WITH UDP
+
+UDP has no termiandon control so NAT tables that are saved in the router does not know when to delete those tables.
+The solution for that is that both peers in the connection send packages that reset timers in the communicaters so the other know ( and the routers ) that the connection is still alive.
+Even when TCP it is being used, this is used.
+
+What happens with new NAT connections using UDP is that routers that use the NAT don't know the private IP, so the connection cannot be established.
+For client server applicactions that is not a problem, but P2P such as games or VoIP is a problem.
+
+# STUN
+Session traversal utilities for NAT (STUN) is a protocal that allow the host application to discover the public IP and port fo r the current conection, to do so, the protocol requires assitance from a public positioned well known STUN server.
+So a connection to private, it gives you the public IP of that so after it arrives to the cliente provider, it can handle to go to the private one.
+
+1. The stun server is discoverd via DNS
+2. The stun server gives you the public and port 
+3. You con connect.
+
+However, in practice STUN is not sufficient in all  regards and it is need a TURN
+
+  El problema que STUN resuelve
+
+  Recuerda lo que aprendimos de NAT:
+
+  - Tu dispositivo tiene IP privada: 192.168.1.50.
+  - Tu router tiene IP pública: 188.86.113.76.
+  - El dispositivo NO sabe cuál es su IP pública desde dentro de su propia red.
+  - Para hablar P2P con otro peer, necesitas decirle "puedes alcanzarme en X.Y.Z.W:puerto", pero tú mismo no sabes ese X.Y.Z.W:puerto.
+
+  STUN es el mecanismo para que un dispositivo descubra su propia dirección pública preguntando a un servidor externo.
+
+  Qué significa STUN
+va
+
+
+
+# TURN
+
+It is a reliable system tsecundary from STUN, it is a server in the middle that handle both connections.
+
+![alt text](image-7.png)
+
+
+# TIPOS DE NAT
+
+  Full Cone NAT
+
+  Una vez Alice manda algo desde 192.168.1.50:54321, el NAT le asigna 1.1.1.1:60001. Cualquiera del mundo puede ahora mandarle a 1.1.1.1:60001 y llega a
+   Alice. STUN trivial.
+
+  Restricted Cone
+
+  Igual, pero el NAT solo deja pasar tráfico de IPs a las que Alice ya envió algo antes. Si Alice mandó algo a Bob, solo Bob puede responder. STUN
+  funciona — Alice manda primero, Bob responde, se conectan.
+
+  Port-Restricted Cone
+
+  Aún más estricto: solo deja pasar tráfico del IP y puerto exacto al que Alice envió. Si Alice mandó a Bob:6000, solo Bob:6000 puede responder, no
+  Bob:6001. Pero STUN sigue funcionando porque Bob usa el mismo puerto consistentemente.
+
+  Symmetric NAT (el problema)
+
+  El NAT asigna un puerto público DISTINTO según el destino al que envías.
+
+  - Alice manda a STUN-server:3478 → NAT le asigna pública 1.1.1.1:60001. STUN reporta a Alice "tu pública es 1.1.1.1:60001".
+  - Alice manda a Bob:6000 → NAT le asigna pública distinta, 1.1.1.1:60002.
+
+  Cuando Alice le dice a Bob "alcánzame en 1.1.1.1:60001" (basado en lo que STUN le dijo), Bob intenta enviar ahí. Pero 1.1.1.1:60001 solo está abierto
+  para STUN-server, no para Bob. Paquete tirado.
+
+  STUN reportó una dirección útil, pero la dirección útil cambia según el destino. STUN no puede predecir qué puerto el NAT asignará a Bob. P2P
+  imposible.
+
+  Solución: TURN — relay que actúa como destino único, así el NAT solo asigna un puerto y todo el tráfico fluye por ahí. A costa de bandwidth y latencia
+   extra.
