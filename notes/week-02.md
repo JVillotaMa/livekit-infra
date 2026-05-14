@@ -219,3 +219,19 @@ It is a reliable system tsecundary from STUN, it is a server in the middle that 
 
   Solución: TURN — relay que actúa como destino único, así el NAT solo asigna un puerto y todo el tráfico fluye por ahí. A costa de bandwidth y latencia
    extra.
+
+
+
+# TLS
+
+TLS is a protocol that works above the trasnport layer. It has three services:
+- Encryption
+- Authentication Verify validity of provided identificacation material
+- Integrity Mechanism to detect essage tampering and forgery
+
+To make that posible TLS used a handshake to create the ciphersuites needed for encryption.  In the TLS, it allow the peers to authenticate itselfs, using the public key and not being able the attackers to attack using IP spoofing. The publick key is determined the secuty by dthe chain of trust and certified authorities. Then, all the messages of the TLS use the MAC algorithm one way hash to know that the message is the same, and that it has not changed. So the client can verify that MAC. The key used for negotiation is accepted and negotiated in the handshake.
+
+# TLS Handshake
+
+Before the client Before the client and the server can begin exchanging application data over TLS, the encrypted tunnel must be negotiated: the client and the server must agree on the version of the TLS protocol, choose the ciphersuite, and verify certificates if necessary. Unfortunately, each of these steps requires new packet roundtrips (Figure 4-2) between the client and the server, which adds startup latency to all TLS connections. server can start making meesages, the encç
+![alt text](image-8.png)
